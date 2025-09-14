@@ -1,0 +1,74 @@
+name: Test Flow
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop,main]
+env:
+  NETCORE_VERSION: "8.0.x"
+
+jobs:
+  build:
+    runs-on: [self-hosted, h4b-backend]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core ${{ env.NETCORE_VERSION }}
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ env.NETCORE_VERSION }}
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.0.5
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Clean Branch Name
+        uses: mad9000/actions-find-and-replace-string@1
+        id: cleanBranchName
+        with:
+          source: ${{ github.ref }}
+          find: 'refs/heads/'
+          replace: 'n1-loyalty-'
+
+      - name: Replace database name with branch name
+        uses: mad9000/actions-find-and-replace-string@1
+        id: branchConnectionString
+        with:
+          source: ${{ secrets.DEV_TESTING_CONNECTION_STRING }}
+          find: 'LoyaltyTestDB'
+          replace: ${{ steps.cleanBranchName.outputs.value }}
+
+      - name: App Settings Variable Substitution
+        uses: microsoft/variable-substitution@v1
+        with:
+          files: "tests/Application.FunctionalTests/appsettings.json"
+        env:
+          ConnectionStrings.DefaultConnection: ${{ steps.branchConnectionString.outputs.value }}
+
+      - name: Run Tests
+        run: dotnet test /p:CollectCoverage=true
+          /p:CoverletOutput=./
+          /p:CoverletOutputFormat=lcov
+          /p:Exclude=\"[N1coLoyalty.Api]\*,[N1coLoyalty.Infrastructure]\*\"
+          /p:CopyLocalLockFileAssemblies=true --logger trx --results-directory ./TestResults
+        continue-on-error: true
+
+      - name: Parse Test Results
+        uses: NasAmin/trx-parser@v0.1.1
+        id: trx-parser
+        with:
+          TRX_PATH: ${{ github.workspace }}/TestResults #This should be the path to your TRX files
+          REPO_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Code Climate Coverage Action
+        uses: paambaati/codeclimate-action@v3.0.0
+        env:
+          CC_TEST_REPORTER_ID: bb02f6b5a48da6eb74eb69180f6205962fd734e051a0971c593d9201dadf6c51
+        with:
+          coverageLocations: |
+            ${{github.workspace}}/tests/Application.FunctionalTests/coverage.info:lcov
+            ${{github.workspace}}/tests/Application.UnitTests/coverage.info:lcov
+            ${{github.workspace}}/tests/Domain.UnitTests/coverage.info:lcov

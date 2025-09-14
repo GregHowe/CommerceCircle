@@ -1,0 +1,58 @@
+namespace: 'loyalty'
+fullnameOverride: 'event-worker'
+
+ingress:
+  enabled: false
+
+doppler:
+  secretCRDName: dopplersecret-event-worker-dev
+  secretTokenName: doppler-event-worker-dev-token-secret
+  secretServiceName: doppler-event-worker-dev-secret
+
+envDeployment:
+  DOTNET_ENVIRONMENT: Development
+  DD_LOGS_INJECTION: "true"
+  N1coPaymentsService__IdUrl: "https://id-payments.h4b.dev"
+  N1coPaymentsService__Url: "https://api-payments-v3.h4b.dev"
+  Onboarding__Reward: 500
+  AuthenticationService__Authority: "https://id.h4b.dev"
+  AuthenticationService__Audience: "https://n1co.pay.dev"
+  LoyaltyCore__LoyaltyProgramIntegrationId: "n1co-loyalty"
+  LoyaltyCore__CampaignIntegrationIds__PlayGame: "n1co-roulette"
+  LoyaltyCore__Service__Url: "https://n1-loyalty-core-dev-eus.azurewebsites.net"
+  CashBack__Service__Url: "https://issuing-api-dev.n1co.com"
+
+deployment:
+  containerPort: 8080
+  livenessProbeEnabled: false
+  readinessProbeEnabled: false
+
+service:
+  port: 8080
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 450Mi
+  requests:
+    cpu: 200m
+    memory: 400Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector:
+  node-purpose: worker
+
+podAnnotations:
+  ad.datadoghq.com/event-worker.logs: '[{"source": "csharp"}]'
+  admission.datadoghq.com/dotnet-lib.version: v2.47.0
+
+datadogLabels:
+  env: "development"
+  service: 'loyalty-event-worker'
+  admissionEnabled: "true"

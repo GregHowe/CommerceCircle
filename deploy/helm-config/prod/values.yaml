@@ -1,0 +1,134 @@
+namespace: 'loyalty'
+fullnameOverride: 'loyalty-api'
+
+ingress:
+  enabled: true
+  enableCors: true
+  annotations:
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+  annotationsCors:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS, DELETE"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,X-LANG,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-Api-Key,X-Device-Id,Access-Control-Allow-Origin,application-id,Authorization,x-requested-with,x-signalr-user-agent,Access-Control-Allow-Credentials,x-client-provider,x-client-id,x-client-secret"
+  hosts:
+    - host: loyalty-api.n1co.com
+      path: "/"
+  tls:
+    - secretName: loyalty-api-tls
+      hosts:
+        - loyalty-api.n1co.com
+
+doppler:
+  secretCRDName: dopplersecret-loyalty-api-prod
+  secretTokenName: doppler-loyalty-api-prod-token-secret
+  secretServiceName: doppler-loyalty-api-prod-secret
+  
+envDeployment:
+  DOTNET_ENVIRONMENT: Production
+  DD_LOGS_INJECTION: "true"
+  N1coPaymentsService__IdUrl: "https://id-payments.n1co.com"
+  N1coPaymentsService__Url: "https://api-payments.n1co.com"
+  Onboarding__Reward: 500
+  AuthenticationService__Authority: "https://id.n1co.shop"
+  AuthenticationService__Audience: "https://n1co.pay.prod"
+  LoyaltyCore__LoyaltyProgramIntegrationId: "n1co-loyalty"
+  LoyaltyCore__CampaignIntegrationIds__PlayGame: "n1co-roulette"
+  LoyaltyCore__Service__Url: "https://n1-loyalty-core-prod-cus.azurewebsites.net"
+  CashBack__Service__Url: "https://issuing-api.n1co.com"
+  
+deployment:
+  containerPort: 8000
+  
+service:
+  port: 8000
+  
+resources:
+  limits:
+    cpu: 500m
+    memory: 1200Mi
+  requests:
+    cpu: 400m
+    memory: 1000Mi
+    
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+  
+nodeSelector:
+  node-purpose: worker
+  
+podAnnotations:
+  ad.datadoghq.com/loyalty-api.logs: '[{"source": "csharp"}]'
+  admission.datadoghq.com/dotnet-lib.version: v2.47.0
+  
+datadogLabels:
+  env: "production"
+  service: 'loyalty-api'
+  admissionEnabled: "true"
+
+datadog:
+  monitors:
+    - k8s_name: loyalty-api-latency-p95
+      query: "avg(last_5m):p95:trace.aspnet_core.request{env:production,service:loyalty-api} > 5"
+      name: "Service Loyalty API has a high p95 latency - Prod"
+      type: "query alert"
+      message: "loyalty-api 95th percentile latency is too high. \n {{#is_warning}} \n Latency above 3 seconds @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning}} \n {{#is_alert}} \n Latency above 5 seconds @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert}} \n {{#is_alert_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert_recovery}}  \n {{#is_warning_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning_recovery}}"
+      tags:
+        - "service:loyalty"
+      prority: 1
+      notifyNoData: true
+      thresholds_critical: 5
+      thresholds_warning: 3
+    - k8s_name: loyalty-api-error-rate
+      query: "sum(last_5m):sum:trace.aspnet_core.request.errors{env:production,service:loyalty-api}.as_count() / sum:trace.aspnet_core.request.hits{env:production,service:loyalty-api}.as_count() > 0.1"
+      name: "Service Loyalty API has a high error rate - Prod"
+      type: "query alert"
+      message: "loyalty-api error rate is too high. \n {{#is_warning}} \n Error rate above 5% @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning}} \n {{#is_alert}} \n Error rate above 10% @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert}} \n {{#is_alert_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert_recovery}}  \n {{#is_warning_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning_recovery}}"
+      tags:
+        - "service:loyalty"
+      prority: 1
+      notifyNoData: false
+      thresholds_critical: 0.1
+      thresholds_warning: 0.05
+    - k8s_name: loyalty-api-client-error-rate
+      query: "sum(last_5m):sum:trace.aspnet_core.request.hits.by_http_status{env:production,service:loyalty-api, http.status_class:4xx}.as_count() / sum:trace.aspnet_core.request.hits{env:production,service:loyalty-api}.as_count() > 0.25"
+      name: "Service Loyalty API has a high error rate - Prod"
+      type: "query alert"
+      message: "loyalty-api client error rate is too high. \n {{#is_warning}} \n Error rate above 20% @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning}} \n {{#is_alert}} \n Error rate above 25% @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert}} \n {{#is_alert_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert_recovery}}  \n {{#is_warning_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning_recovery}}"
+      tags:
+        - "service:loyalty"
+      prority: 1
+      notifyNoData: false
+      thresholds_critical: 0.25
+      thresholds_warning: 0.2
+    # Monitores servicios externos
+    ### Loyalty Core
+    - k8s_name: loyalty-core-api-latency-p95
+      query: "avg(last_10m):p95:trace.http.request{env:production,service:loyalty-api-http-client} > 1.5"
+      name: "Service Loyalty Core API has a high p95 latency - PROD"
+      type: "query alert"
+      message: "loyalty-api-http-client[core] 95th percentile latency is too high. \n {{#is_warning}} \n Latency above 1.2 seconds @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning}} \n {{#is_alert}} \n Latency above 1.5 seconds @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert}} \n {{#is_alert_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_alert_recovery}}  \n {{#is_warning_recovery}} \n @hangouts-Incidents-loyalty @pagerduty-loyalty-api   \n {{/is_warning_recovery}}"
+      tags:
+        - "service:loyalty"
+      prority: 1
+      notifyNoData: false
+      thresholds_critical: 1.5
+      thresholds_warning: 1
+    - k8s_name: loyalty-core-api-error-rate
+      query: "sum(last_5m):sum:trace.http.request.errors{env:production,service:loyalty-api-http-client }.as_count() / sum:trace.http.request.hits{env:production,service:loyalty-api-http-client}.as_count() > 0.15"
+      name: "Service Loyalty Core API has a high error rate - Prod"
+      type: "query alert"
+      message: "loyalty-api-http-client error rate is too high. {{#is_warning}} Error rate above 1% @hangouts-Incidents-loyalty @pagerduty-loyalty-api  {{/is_warning}} {{#is_alert}} Error rate above 15% @hangouts-Incidents-loyalty @pagerduty-loyalty-api  {{/is_alert}} {{#is_alert_recovery}} @hangouts-Incidents-loyalty @pagerduty-loyalty-api  {{/is_alert_recovery}} {{#is_warning_recovery}} @hangouts-Incidents-loyalty @pagerduty-loyalty-api  {{/is_warning_recovery}}"
+      tags:
+        - "service:loyalty"
+      prority: 1
+      notifyNoData: false
+      thresholds_critical: 0.15
+      thresholds_warning: 0.1

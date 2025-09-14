@@ -1,0 +1,74 @@
+namespace: 'loyalty'
+fullnameOverride: 'loyalty-api'
+
+ingress:
+  enabled: true
+  enableCors: true
+  annotations:
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-dev
+    kubernetes.io/ingress.class: nginx
+  annotationsCors:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS, DELETE"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,X-LANG,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-Api-Key,X-Device-Id,Access-Control-Allow-Origin,application-id,Authorization,x-requested-with,x-signalr-user-agent,Access-Control-Allow-Credentials,x-client-provider,x-client-id,x-client-secret"
+  hosts:
+    - host: loyalty-api-dev.n1co.com
+      path: "/"
+  tls:
+    - secretName: loyalty-api-tls
+      hosts:
+        - loyalty-api-dev.n1co.com
+
+doppler:
+  secretCRDName: dopplersecret-loyalty-api-dev
+  secretTokenName: doppler-loyalty-api-dev-token-secret
+  secretServiceName: doppler-loyalty-api-dev-secret
+
+envDeployment:
+  DOTNET_ENVIRONMENT: Development
+  DD_LOGS_INJECTION: "true"
+  N1coPaymentsService__IdUrl: "https://id-payments.h4b.dev"
+  N1coPaymentsService__Url: "https://api-payments-v3.h4b.dev"
+  Onboarding__Reward: 500
+  AuthenticationService__Authority: "https://id.h4b.dev"
+  AuthenticationService__Audience: "https://n1co.pay.dev"
+  LoyaltyCore__LoyaltyProgramIntegrationId: "n1co-loyalty"
+  LoyaltyCore__CampaignIntegrationIds__PlayGame: "n1co-roulette"
+  LoyaltyCore__Service__Url: "https://n1-loyalty-core-dev-eus.azurewebsites.net"
+  CashBack__Service__Url: "https://issuing-api-dev.n1co.com"
+  
+deployment:
+  containerPort: 8000
+
+service:
+  port: 8000
+
+resources:
+  limits:
+    cpu: 400m
+    memory: 400Mi
+  requests:
+    cpu: 250m
+    memory: 350Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector:
+  node-purpose: worker
+
+podAnnotations:
+  ad.datadoghq.com/loyalty-api.logs: '[{"source": "csharp"}]'
+  admission.datadoghq.com/dotnet-lib.version: v2.47.0
+
+datadogLabels:
+  env: "development"
+  service: 'loyalty-api'
+  admissionEnabled: "true"

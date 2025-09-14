@@ -1,0 +1,21 @@
+﻿namespace N1coLoyalty.Application.Common.Security;
+
+/// <summary>
+/// Specifies the class this attribute is applied to requires authorization.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+public class AuthorizeAttribute : Attribute
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AuthorizeAttribute"/> class. 
+    /// </summary>
+    public AuthorizeAttribute(params string[] permissions)
+    {
+        Permissions = permissions;
+    }
+    
+    /// <summary>
+    /// Gets or sets a comma-delimited list of permissions that are allowed to access the resource.
+    /// </summary>
+    public string[] Permissions { get; }
+}
