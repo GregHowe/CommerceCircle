@@ -1,4 +1,4 @@
-﻿# n1co Loyalty Backend - Integration API
+﻿# Commerce Circle Backend - Integration API
 
 ## Description
 The current software project is developed in .Net 8.0, based on Clean Architecture patterns, with the main goal of promoting customer loyalty through a gamification strategy: Loyalty points, loyalty levels, and gamification
