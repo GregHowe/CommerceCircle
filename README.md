@@ -27,5 +27,5 @@ The project is built using the following technologies:
 
 ## Parent System
 This project is part of the following parent system(s):
-- **System:** Loyalty
+- **System:** Commerce
 
